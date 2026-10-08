@@ -50,6 +50,7 @@ pub enum Agent {
     Antigravity,
     Cline,
     Omp,
+    Pig,
     Mastracode,
     OpenCode,
     GithubCopilot,
@@ -68,7 +69,7 @@ pub enum Agent {
 }
 
 impl Agent {
-    pub const ALL: [Self; 24] = [
+    pub const ALL: [Self; 25] = [
         Self::Pi,
         Self::Claude,
         Self::Codex,
@@ -78,6 +79,7 @@ impl Agent {
         Self::Antigravity,
         Self::Cline,
         Self::Omp,
+        Self::Pig,
         Self::Mastracode,
         Self::OpenCode,
         Self::GithubCopilot,
@@ -132,6 +134,7 @@ pub fn agent_label(agent: Agent) -> &'static str {
         Agent::Antigravity => "agy",
         Agent::Cline => "cline",
         Agent::Omp => "omp",
+        Agent::Pig => "pig",
         Agent::Mastracode => "mastracode",
         Agent::OpenCode => "opencode",
         Agent::GithubCopilot => "copilot",
@@ -167,6 +170,7 @@ pub fn interactive_agent_executable(agent: Agent) -> &'static str {
         Agent::Antigravity => "agy",
         Agent::Cline => "cline",
         Agent::Omp => "omp",
+        Agent::Pig => "pig",
         Agent::Mastracode => "mastracode",
         Agent::OpenCode => "opencode",
         Agent::GithubCopilot => "copilot",
@@ -207,6 +211,7 @@ fn lookup_agent(name: &str) -> Option<Agent> {
         "agy" | "antigravity" | "antigravity-cli" => Some(Agent::Antigravity),
         "cline" | ".cline" => Some(Agent::Cline),
         "omp" => Some(Agent::Omp),
+        "pig" => Some(Agent::Pig),
         "mastracode" | "mastra-code" | "mastra code" => Some(Agent::Mastracode),
         "opencode" | "opencode2" | "open-code" => Some(Agent::OpenCode),
         "copilot" | "github-copilot" | "ghcs" => Some(Agent::GithubCopilot),
@@ -332,6 +337,7 @@ pub(crate) fn full_lifecycle_hook_authority(source: &str, agent_label: &str) -> 
         (source, agent_label),
         ("herdr:pi", "pi")
             | ("herdr:omp", "omp")
+            | ("herdr:pig", "pig")
             | ("herdr:mastracode", "mastracode")
             | ("herdr:opencode", "opencode")
             | ("herdr:kilo", "kilo")
@@ -983,6 +989,7 @@ mod tests {
         assert_eq!(identify_agent("antigravity-cli"), Some(Agent::Antigravity));
         assert_eq!(identify_agent("cline"), Some(Agent::Cline));
         assert_eq!(identify_agent("omp"), Some(Agent::Omp));
+        assert_eq!(identify_agent("pig"), Some(Agent::Pig));
         assert_eq!(identify_agent("mastracode"), Some(Agent::Mastracode));
         assert_eq!(identify_agent("mastra-code"), Some(Agent::Mastracode));
         assert_eq!(identify_agent("opencode"), Some(Agent::OpenCode));
@@ -1030,6 +1037,7 @@ mod tests {
         assert_eq!(parse_agent_label("agy"), Some(Agent::Antigravity));
         assert_eq!(parse_agent_label("antigravity"), Some(Agent::Antigravity));
         assert_eq!(parse_agent_label("omp"), Some(Agent::Omp));
+        assert_eq!(parse_agent_label("pig"), Some(Agent::Pig));
         assert_eq!(parse_agent_label("mastracode"), Some(Agent::Mastracode));
         assert_eq!(parse_agent_label("mastra code"), Some(Agent::Mastracode));
         assert_eq!(parse_agent_label("opencode.exe"), Some(Agent::OpenCode));
@@ -1077,6 +1085,7 @@ mod tests {
             (Agent::Antigravity, "agy"),
             (Agent::Cline, "cline"),
             (Agent::Omp, "omp"),
+            (Agent::Pig, "pig"),
             (Agent::Mastracode, "mastracode"),
             (Agent::OpenCode, "opencode"),
             (Agent::GithubCopilot, "copilot"),
@@ -1114,6 +1123,12 @@ mod tests {
             "mastracode"
         ));
         assert!(!Agent::SCREEN_MANIFEST_AGENTS.contains(&Agent::Mastracode));
+    }
+
+    #[test]
+    fn pig_is_hook_authority_without_screen_manifest() {
+        assert!(full_lifecycle_hook_authority("herdr:pig", "pig"));
+        assert!(!Agent::SCREEN_MANIFEST_AGENTS.contains(&Agent::Pig));
     }
 
     #[test]

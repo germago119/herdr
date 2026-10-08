@@ -123,7 +123,7 @@ pub fn session_ref_from_report(
         return None;
     }
 
-    if agent == "pi" || agent == "omp" {
+    if agent == "pi" || agent == "omp" || agent == "pig" {
         return _agent_session_path
             .and_then(AgentSessionRef::path)
             .or_else(|| agent_session_id.and_then(AgentSessionRef::id));
@@ -184,7 +184,7 @@ pub fn session_ref_from_snapshot(
         return None;
     }
     let session_ref = match (agent, kind) {
-        ("pi" | "omp", AgentSessionRefKind::Path) => AgentSessionRef::path(value)?,
+        ("pi" | "omp" | "pig", AgentSessionRefKind::Path) => AgentSessionRef::path(value)?,
         (_, AgentSessionRefKind::Id) => AgentSessionRef::id(value)?,
         _ => return None,
     };
@@ -237,6 +237,19 @@ pub fn plan(source: &str, agent: &str, session_ref: &AgentSessionRef) -> Option<
             // omp resume is `-r, --resume=<value>` (ID prefix or path); it has no
             // `--session` flag, unlike pi.
             vec!["omp".into(), format!("--resume={}", session_ref.value)]
+        }
+        // pig opens the exact session file with `--session <path>`. A bare id after
+        // `--session` may fork when the project directory differs, so ids resume
+        // through `--session-id`, which never prompts.
+        ("herdr:pig", "pig", AgentSessionRefKind::Path) => {
+            vec!["pig".into(), "--session".into(), session_ref.value.clone()]
+        }
+        ("herdr:pig", "pig", AgentSessionRefKind::Id) => {
+            vec![
+                "pig".into(),
+                "--session-id".into(),
+                session_ref.value.clone(),
+            ]
         }
         ("herdr:hermes", "hermes", AgentSessionRefKind::Id) => {
             vec![
@@ -334,6 +347,7 @@ pub(crate) fn is_official_agent_source(source: &str, agent: &str) -> bool {
             | ("herdr:droid", "droid")
             | ("herdr:kimi", "kimi")
             | ("herdr:omp", "omp")
+            | ("herdr:pig", "pig")
             | ("herdr:mastracode", "mastracode")
             | ("herdr:pi", "pi")
             | ("herdr:hermes", "hermes")
@@ -453,6 +467,7 @@ mod tests {
     fn planner_allows_supported_agents() {
         let pi_session = absolute_test_path("pi-session.jsonl");
         let omp_session = absolute_test_path("omp-session.jsonl");
+        let pig_session = absolute_test_path("pig-session.jsonl");
         assert_eq!(
             plan(
                 "herdr:claude",
@@ -542,6 +557,26 @@ mod tests {
             .unwrap()
             .argv,
             vec!["omp", format!("--resume={omp_session}").as_str()]
+        );
+        assert_eq!(
+            plan(
+                "herdr:pig",
+                "pig",
+                &AgentSessionRef::path(&pig_session).unwrap()
+            )
+            .unwrap()
+            .argv,
+            vec!["pig", "--session", pig_session.as_str()]
+        );
+        assert_eq!(
+            plan(
+                "herdr:pig",
+                "pig",
+                &AgentSessionRef::id("pig-session-id").unwrap()
+            )
+            .unwrap()
+            .argv,
+            vec!["pig", "--session-id", "pig-session-id"]
         );
         assert_eq!(
             plan(
@@ -724,6 +759,25 @@ mod tests {
         assert_eq!(session_ref.value, "omp-id");
         assert!(
             session_ref_from_report("herdr:omp", "omp", None, Some("relative.jsonl".into()))
+                .is_none()
+        );
+
+        let pig_session = absolute_test_path("pig-session.jsonl");
+        let session_ref = session_ref_from_report(
+            "herdr:pig",
+            "pig",
+            Some("pig-id".into()),
+            Some(pig_session.clone()),
+        )
+        .unwrap();
+        assert_eq!(session_ref.kind, AgentSessionRefKind::Path);
+        assert_eq!(session_ref.value, pig_session);
+        let session_ref =
+            session_ref_from_report("herdr:pig", "pig", Some("pig-id".into()), None).unwrap();
+        assert_eq!(session_ref.kind, AgentSessionRefKind::Id);
+        assert_eq!(session_ref.value, "pig-id");
+        assert!(
+            session_ref_from_report("herdr:pig", "pig", None, Some("relative.jsonl".into()))
                 .is_none()
         );
 

@@ -11,6 +11,8 @@ pub(crate) const HERDR_WORKSPACE_ID_ENV_VAR: &str = "HERDR_WORKSPACE_ID";
 
 pub(crate) const PI_CODING_AGENT_DIR_ENV_VAR: &str = "PI_CODING_AGENT_DIR";
 pub(crate) const OMP_CONFIG_DIR_ENV_VAR: &str = "PI_CONFIG_DIR";
+pub(crate) const PIG_CODING_AGENT_DIR_ENV_VAR: &str = "PIG_CODING_AGENT_DIR";
+pub(crate) const PIG_HOME_ENV_VAR: &str = "PIG_HOME";
 pub(crate) const CLAUDE_CONFIG_DIR_ENV_VAR: &str = "CLAUDE_CONFIG_DIR";
 pub(crate) const CODEX_HOME_ENV_VAR: &str = "CODEX_HOME";
 pub(crate) const KIMI_CODE_HOME_ENV_VAR: &str = "KIMI_CODE_HOME";
@@ -37,6 +39,20 @@ pub(crate) fn pi_extension_dir() -> io::Result<PathBuf> {
         config_dir_from_env_or_home(PI_CODING_AGENT_DIR_ENV_VAR, &[".pi", "agent"])?
             .join("extensions"),
     )
+}
+
+/// Pig keeps its configuration in `~/.pig` and never reads `~/.pi`. The agent
+/// directory is `PIG_CODING_AGENT_DIR`, else `$PIG_HOME/agent`, else `~/.pig/agent`.
+pub(crate) fn pig_extension_dir() -> io::Result<PathBuf> {
+    if std::env::var_os(PIG_CODING_AGENT_DIR_ENV_VAR).is_some_and(|value| !value.is_empty()) {
+        return Ok(
+            config_dir_from_env_or_home(PIG_CODING_AGENT_DIR_ENV_VAR, &[".pig", "agent"])?
+                .join("extensions"),
+        );
+    }
+    Ok(config_dir_from_env_or_home(PIG_HOME_ENV_VAR, &[".pig"])?
+        .join("agent")
+        .join("extensions"))
 }
 
 pub(crate) fn omp_extension_dir() -> io::Result<PathBuf> {

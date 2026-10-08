@@ -1,6 +1,6 @@
 ---
 title: Integrations
-description: Install Herdr integrations for Pi, OMP, Claude Code, Codex, GitHub Copilot CLI, Devin CLI, Droid, Kimi Code CLI, OpenCode, Kilo Code CLI, Hermes Agent, Qoder CLI, Qwen Code, Letta Code, Cursor Agent CLI, MastraCode, Antigravity CLI, and Grok CLI.
+description: Install Herdr integrations for Pi, OMP, Pig, Claude Code, Codex, GitHub Copilot CLI, Devin CLI, Droid, Kimi Code CLI, OpenCode, Kilo Code CLI, Hermes Agent, Qoder CLI, Qwen Code, Letta Code, Cursor Agent CLI, MastraCode, Antigravity CLI, and Grok CLI.
 ---
 
 Herdr detects the agents it supports automatically. Install an agent's integration so Herdr can resume the same session after a server restart. Some integrations also report the agent's state directly. See [Agents](/docs/agents/) for which agents Herdr supports and which support Herdr themselves.
@@ -12,6 +12,7 @@ Open settings inside Herdr and use the integrations tab to install recommended i
 ```bash
 herdr integration install pi
 herdr integration install omp
+herdr integration install pig
 herdr integration install claude
 herdr integration install codex
 herdr integration install copilot
@@ -35,6 +36,7 @@ herdr integration install grok
 ```bash
 herdr integration uninstall pi
 herdr integration uninstall omp
+herdr integration uninstall pig
 herdr integration uninstall claude
 herdr integration uninstall codex
 herdr integration uninstall copilot
@@ -100,6 +102,26 @@ Herdr writes the bundled extension to:
 Herdr uses `PI_CODING_AGENT_DIR` as the complete agent directory when set. Otherwise, it uses `$HOME/$PI_CONFIG_DIR/agent` when `PI_CONFIG_DIR` is set, falling back to `~/.omp/agent`. If Pi and OMP resolve to the same extension directory, Herdr refuses the OMP install so the OMP extension cannot be loaded by Pi. Configure separate agent directories before installing both integrations. Herdr creates the extensions directory when the resolved OMP agent directory already exists. Uninstall removes only that extension file.
 
 The OMP integration reports `omp` as the agent label, lifecycle state, and native session identity through Herdr's socket API. It does not require native process detection for the `omp` executable, and Herdr can resume an OMP pane with `omp --resume=<session>` after a server restart.
+
+## Pig
+
+Pig is [PiG](https://github.com/MichaelKinsy/PiG), the Go implementation of Pi. It keeps its configuration in `~/.pig` and never reads `~/.pi`, so it needs its own integration. Pig integration installation is experimental and CLI-only. It is not listed in the Settings integration screen or the JSON integration API. `herdr integration status` reports it as `pig (experimental)`.
+
+Install the Pig integration:
+
+```bash
+herdr integration install pig
+```
+
+Herdr writes the bundled extension to:
+
+```text
+~/.pig/agent/extensions/herdr-pig-agent-state.ts
+```
+
+Herdr uses `PIG_CODING_AGENT_DIR` as the complete agent directory when set. Otherwise, it uses `$PIG_HOME/agent` when `PIG_HOME` is set, falling back to `~/.pig/agent`. Herdr creates the extensions directory when the Pig agent directory already exists. Uninstall removes only that extension file.
+
+The Pig integration reports `pig` as the agent label, lifecycle state, and native session identity through Herdr's socket API. Herdr can resume a Pig pane with `pig --session <path>` after a server restart, or `pig --session-id <id>` when only the session ID is known.
 
 ## Claude Code
 

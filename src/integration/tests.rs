@@ -130,6 +130,8 @@ fn enforce_agent_version_accepts_current_version() {
 
 fn clear_integration_path_env() {
     std::env::remove_var(PI_CODING_AGENT_DIR_ENV_VAR);
+    std::env::remove_var(PIG_CODING_AGENT_DIR_ENV_VAR);
+    std::env::remove_var(PIG_HOME_ENV_VAR);
     std::env::remove_var(OMP_CONFIG_DIR_ENV_VAR);
     std::env::remove_var(CLAUDE_CONFIG_DIR_ENV_VAR);
     std::env::remove_var(CODEX_HOME_ENV_VAR);
@@ -811,6 +813,162 @@ fn uninstall_pi_removes_embedded_extension_when_present() {
     );
     assert!(result.removed_extension);
     assert!(!result.extension_path.exists());
+
+    std::env::remove_var("HOME");
+    let _ = fs::remove_dir_all(base);
+}
+
+#[test]
+fn install_pig_writes_embedded_asset_to_pig_extensions_dir() {
+    let _lock = integration_env_lock();
+    clear_integration_path_env();
+    let base = unique_base();
+    let home = base.join("home");
+    let ext_dir = home.join(".pig/agent/extensions");
+    fs::create_dir_all(&ext_dir).unwrap();
+    std::env::set_var("HOME", &home);
+
+    let path = install_pig().unwrap();
+
+    assert_eq!(path, ext_dir.join(PIG_EXTENSION_INSTALL_NAME));
+    assert_eq!(fs::read_to_string(&path).unwrap(), PIG_EXTENSION_ASSET);
+    assert!(PIG_EXTENSION_ASSET.contains("HERDR_INTEGRATION_ID=pig"));
+    assert!(PIG_EXTENSION_ASSET.contains("const source = \"herdr:pig\";"));
+
+    std::env::remove_var("HOME");
+    let _ = fs::remove_dir_all(base);
+}
+
+#[test]
+fn install_pig_creates_extensions_dir_when_agent_dir_exists() {
+    let _lock = integration_env_lock();
+    clear_integration_path_env();
+    let base = unique_base();
+    let home = base.join("home");
+    let agent_dir = home.join(".pig/agent");
+    fs::create_dir_all(&agent_dir).unwrap();
+    std::env::set_var("HOME", &home);
+
+    let path = install_pig().unwrap();
+
+    assert_eq!(
+        path,
+        agent_dir
+            .join("extensions")
+            .join(PIG_EXTENSION_INSTALL_NAME)
+    );
+    assert!(path.is_file());
+
+    std::env::remove_var("HOME");
+    let _ = fs::remove_dir_all(base);
+}
+
+#[test]
+fn install_pig_never_uses_the_pi_agent_directory() {
+    let _lock = integration_env_lock();
+    clear_integration_path_env();
+    let base = unique_base();
+    let home = base.join("home");
+    fs::create_dir_all(home.join(".pi/agent/extensions")).unwrap();
+    std::env::set_var("HOME", &home);
+    std::env::set_var(PI_CODING_AGENT_DIR_ENV_VAR, home.join(".pi/agent"));
+
+    let err = install_pig().unwrap_err().to_string();
+
+    assert!(err.contains("pig extension directory not found"));
+    assert!(!home
+        .join(".pi/agent/extensions")
+        .join(PIG_EXTENSION_INSTALL_NAME)
+        .exists());
+
+    std::env::remove_var("HOME");
+    clear_integration_path_env();
+    let _ = fs::remove_dir_all(base);
+}
+
+#[test]
+fn pig_agent_dir_env_takes_precedence_over_pig_home() {
+    let _lock = integration_env_lock();
+    clear_integration_path_env();
+    let base = unique_base();
+    let agent_dir = base.join("custom-pig-agent");
+    let pig_home = base.join("pig-home");
+    fs::create_dir_all(agent_dir.join("extensions")).unwrap();
+    fs::create_dir_all(pig_home.join("agent/extensions")).unwrap();
+    std::env::set_var(PIG_HOME_ENV_VAR, &pig_home);
+
+    assert_eq!(
+        install_pig().unwrap(),
+        pig_home
+            .join("agent/extensions")
+            .join(PIG_EXTENSION_INSTALL_NAME)
+    );
+
+    std::env::set_var(PIG_CODING_AGENT_DIR_ENV_VAR, &agent_dir);
+    assert_eq!(
+        install_pig().unwrap(),
+        agent_dir
+            .join("extensions")
+            .join(PIG_EXTENSION_INSTALL_NAME)
+    );
+
+    clear_integration_path_env();
+    let _ = fs::remove_dir_all(base);
+}
+
+#[test]
+fn uninstall_pig_removes_embedded_extension_when_present() {
+    let _lock = integration_env_lock();
+    clear_integration_path_env();
+    let base = unique_base();
+    let home = base.join("home");
+    let ext_dir = home.join(".pig/agent/extensions");
+    fs::create_dir_all(&ext_dir).unwrap();
+    fs::write(
+        ext_dir.join(PIG_EXTENSION_INSTALL_NAME),
+        PIG_EXTENSION_ASSET,
+    )
+    .unwrap();
+    std::env::set_var("HOME", &home);
+
+    let result = uninstall_pig().unwrap();
+
+    assert_eq!(
+        result.extension_path,
+        ext_dir.join(PIG_EXTENSION_INSTALL_NAME)
+    );
+    assert!(result.removed_extension);
+    assert!(!result.extension_path.exists());
+
+    std::env::remove_var("HOME");
+    let _ = fs::remove_dir_all(base);
+}
+
+#[test]
+fn experimental_pig_status_tracks_installed_version() {
+    let _lock = integration_env_lock();
+    clear_integration_path_env();
+    let base = unique_base();
+    let home = base.join("home");
+    let ext_dir = home.join(".pig/agent/extensions");
+    fs::create_dir_all(&ext_dir).unwrap();
+    std::env::set_var("HOME", &home);
+
+    let status = experimental_pig_integration_status().unwrap();
+    assert_eq!(status.state, IntegrationStatusKind::NotInstalled);
+
+    install_experimental_pig().unwrap();
+    let status = experimental_pig_integration_status().unwrap();
+    assert_eq!(status.state, IntegrationStatusKind::Current);
+    assert_eq!(status.installed_version, Some(PIG_INTEGRATION_VERSION));
+
+    fs::write(
+        ext_dir.join(PIG_EXTENSION_INSTALL_NAME),
+        "// HERDR_INTEGRATION_ID=pig\n// HERDR_INTEGRATION_VERSION=0\n",
+    )
+    .unwrap();
+    let status = experimental_pig_integration_status().unwrap();
+    assert_eq!(status.state, IntegrationStatusKind::Outdated);
 
     std::env::remove_var("HOME");
     let _ = fs::remove_dir_all(base);
@@ -3167,6 +3325,7 @@ fn bundled_integration_asset_versions_match_expected_versions() {
     for (name, asset, expected_version) in [
         ("pi", PI_EXTENSION_ASSET, PI_INTEGRATION_VERSION),
         ("omp", OMP_EXTENSION_ASSET, OMP_INTEGRATION_VERSION),
+        ("pig", PIG_EXTENSION_ASSET, PIG_INTEGRATION_VERSION),
         ("claude", CLAUDE_HOOK_ASSET, CLAUDE_INTEGRATION_VERSION),
         ("codex", CODEX_HOOK_ASSET, CODEX_INTEGRATION_VERSION),
         ("kimi", KIMI_HOOK_ASSET, KIMI_INTEGRATION_VERSION),

@@ -1410,6 +1410,7 @@ impl TerminalState {
                 | ("herdr:hermes", "hermes", Some("startup" | "new" | "resume"))
                 | ("herdr:opencode", "opencode", Some("select"))
                 | ("herdr:pi", "pi", Some("new" | "resume" | "fork"))
+                | ("herdr:pig", "pig", Some("new" | "resume" | "fork"))
                 | ("herdr:grok", "grok", Some("new"))
                 | (
                     "herdr:omp",
